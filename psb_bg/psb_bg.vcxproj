@@ -136,7 +136,7 @@
     <ClInclude Include="D:\admin\Downloads\psb_bg-master\driver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="D:\admin\Downloads\psb_bg-master\main.cpp" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
