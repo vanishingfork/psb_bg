@@ -309,7 +309,7 @@ VOID amd_psb_check() {
     }
 }
 
-void cleanup() {
+VOID cleanup() {
     if (RwDrv_handle) CloseHandle(RwDrv_handle);
     unload_driver();
     char tempPath[MAX_PATH];
@@ -320,7 +320,50 @@ void cleanup() {
     (void)getchar();
 }
 
+BOOL is_hypervisor() {
+    // Open a handle to the Service Control Manager
+    SC_HANDLE scmHandle = OpenSCManager(nullptr, nullptr, GENERIC_READ);
+    if (!scmHandle) return false; // Could not open SCM
+
+
+    // Open a handle to the Hyper-V VM Management service (vmms)
+    SC_HANDLE serviceHandle = OpenService(scmHandle, L"vmms", SERVICE_QUERY_STATUS);
+    if (!serviceHandle) {
+        CloseServiceHandle(scmHandle);
+        return false; // Service not found or can't be opened
+    }
+    // Query the service status
+    SERVICE_STATUS_PROCESS ssp = {};
+    DWORD bytesNeeded = 0;
+    bool isRunning = false;
+    if (QueryServiceStatusEx(
+        serviceHandle,
+        SC_STATUS_PROCESS_INFO,
+        reinterpret_cast<LPBYTE>(&ssp),
+        sizeof(ssp),
+        &bytesNeeded
+    )) {
+        // Check if the service is running
+        isRunning = (ssp.dwCurrentState == SERVICE_RUNNING);
+    }
+
+    // Clean up
+    CloseServiceHandle(serviceHandle);
+    CloseServiceHandle(scmHandle);
+    return isRunning;
+}
+
+
 int main() {
+    char cpu[13];
+    get_cpu_vendor(cpu);
+
+    if (is_hypervisor()) {
+        printf("You appear to be running under Hyper-V\n");
+        printf("Press any key to continue\n");
+        printf("Ctrl+C to exit and avoid potential bluescreen.");
+        (void)getchar();
+    }
     int status = load_driver();
     //printf("load_driver() return code: %d\n", status);
     RwDrv_handle = open_handle();
@@ -330,8 +373,6 @@ int main() {
         return 1;
     }
 
-    char cpu[13];
-    get_cpu_vendor(cpu);
     //Force CPU for debugging.
     //strcpy_s(cpu, "GenuineIntel");
     //strcpy_s(cpu, "AuthenticAMD");
