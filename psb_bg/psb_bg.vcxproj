@@ -134,9 +134,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="D:\admin\Downloads\psb_bg-master\driver.h" />
+    <ClInclude Include="RwEverything.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="RwEverything.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
