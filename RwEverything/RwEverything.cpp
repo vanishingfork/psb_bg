@@ -1,8 +1,8 @@
 //RwEverything.cpp
 #include "RwEverything.hpp"
 #include "driver.hpp"
-#include <iostream>
 #include <windows.h>
+#include <iostream>
 
 typedef unsigned long long QWORD;
 
@@ -12,6 +12,7 @@ typedef unsigned long long QWORD;
 #define IOCTL_MEMORY_READ_DWORD 0x222808
 
 #define IOCTL_FAIL 0x4141414141414141
+
 
 bool IsDriverInUse(const char* deviceName) {
     HANDLE hDevice = CreateFileA(
@@ -33,28 +34,38 @@ bool IsDriverInUse(const char* deviceName) {
     return false;
 }
 
-DWORD RwEverything::load_driver() {
+BOOL RwEverything::load_driver() {
+	SC_HANDLE hSCM = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_ALL_ACCESS);
+	if (!hSCM) {
+		printf("Failed to open SC Manager.\n");
+		return ERROR; //ERROR = FALSE
+	}
+
+	SC_HANDLE hService = OpenServiceA(hSCM, "RwDrv", SERVICE_QUERY_STATUS | SERVICE_STOP | DELETE);
+	if (hService) {
+		SERVICE_STATUS status = {};
+		if (QueryServiceStatus(hService, &status) && status.dwCurrentState == SERVICE_RUNNING) {
+			printf("Service already running.\n");
+			CloseServiceHandle(hService);
+			CloseServiceHandle(hSCM);
+			return TRUE; //already loaded, but result is the same.
+		}
+		CloseServiceHandle(hService);
+	}
+
 	GetTempPathA(MAX_PATH, driverPath);
 	strcat_s(driverPath, "RwDrv.sys");
 
 	HANDLE hFile = CreateFileA(driverPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
 	if (hFile == INVALID_HANDLE_VALUE) {
-		DWORD error = GetLastError();
-		printf("Failed to write driver to disk. Error code: %lu\n", error);
-		return 1;
+		printf("Failed to write driver to disk.\n");
+		CloseServiceHandle(hSCM);
+		return ERROR;
 	}
-
-	WriteFile(hFile, driver, (DWORD)driver_size, NULL, nullptr);
+	WriteFile(hFile, driver, (DWORD)driver_size, nullptr, nullptr);
 	CloseHandle(hFile);
-	SC_HANDLE hSCM = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_CREATE_SERVICE);
-	if (!hSCM) {
-		DeleteFileA(driverPath);
-		printf("Failed to open SC Manager\n");
-		return 1;
-	}
 
-	SC_HANDLE hService = CreateServiceA(
-		hSCM,
+	hService = CreateServiceA(hSCM,
 		"RwDrv",
 		"RwDrv",
 		SERVICE_START | DELETE | SERVICE_STOP,
@@ -65,37 +76,33 @@ DWORD RwEverything::load_driver() {
 		nullptr, nullptr, nullptr, nullptr, nullptr);
 
 	if (!hService) {
-		
-		//try to get a handle to an already open RwDrv service.
-        hService = OpenServiceA(hSCM, "RwDrv", SERVICE_START | DELETE | SERVICE_STOP);
-        if (!hService) {
-            printf("Failed to create or open existing RwDrv service.\n");
-            CloseServiceHandle(hSCM);
-            return 1;
-        }
-		printf("RwDrv service already running.\n");
-		CloseServiceHandle(hService);
+		printf("Failed to create service.\n");
+		DeleteFileA(driverPath);
 		CloseServiceHandle(hSCM);
-		return 0;
+		return ERROR;
 	}
 
 	if (!StartServiceA(hService, 0, nullptr)) {
-		printf("Failed to start service.");
+		printf("Failed to start service.\n");
 		DeleteService(hService);
+		DeleteFileA(driverPath);
 		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
-		return 1;
+		return ERROR;
 	}
-
+	did_load_driver = TRUE;
 	CloseServiceHandle(hService);
 	CloseServiceHandle(hSCM);
-	return 0;
+	return TRUE;
 }
 
-DWORD RwEverything::unload_driver() {
+
+BOOL RwEverything::unload_driver() {
+	if (did_load_driver == FALSE) return -1;// we_loaded_driver driver == FALSE -> we didnt load the driver, dont unload, its not our responsibility.
 	SC_HANDLE hSCM = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_CONNECT);
 	if (!hSCM) {
 		printf("OpenSCManagerA failed.\n");
+		DeleteFileA(driverPath);
 		return ERROR;
 	}
 
@@ -103,6 +110,7 @@ DWORD RwEverything::unload_driver() {
 	if (!hService) {
 		printf("OpenServiceA failed.\n");
 		CloseServiceHandle(hSCM);
+		DeleteFileA(driverPath);
 		return ERROR;
 	}
 
@@ -112,6 +120,7 @@ DWORD RwEverything::unload_driver() {
 		printf("QueryServiceStatusEx failed.\n");
 		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
+		DeleteFileA(driverPath);
 		return ERROR;
 	}
 
@@ -122,6 +131,7 @@ DWORD RwEverything::unload_driver() {
 				printf("ControlService failed.\n");
 				CloseServiceHandle(hService);
 				CloseServiceHandle(hSCM);
+				DeleteFileA(driverPath);
 				return ERROR;
 			}
 		}
@@ -132,6 +142,7 @@ DWORD RwEverything::unload_driver() {
 		printf("DeleteService failed. Error code: %lu\n", error);
 		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
+		DeleteFileA(driverPath);
 		return ERROR;
 	}
 
@@ -142,7 +153,8 @@ DWORD RwEverything::unload_driver() {
 }
 
 RwEverything::RwEverything() {
-	if (load_driver() != 0) throw std::runtime_error("Failed to load driver");
+	if (load_driver() == ERROR) this->~RwEverything(); //See errors in load_driver() source
+	
 	RwDrvHandle = CreateFileA(
 		"\\\\.\\RwDrv",                      // Device name 
 		GENERIC_READ | GENERIC_WRITE,        // Access mode
@@ -154,7 +166,7 @@ RwEverything::RwEverything() {
 	);
 	if (RwDrvHandle == INVALID_HANDLE_VALUE) {
 		printf("RwDrv handle acquisition failed.\n");
-		this->~RwEverything(); // do the spooky self-destructor call
+		this->~RwEverything(); 
 	}
 }
 

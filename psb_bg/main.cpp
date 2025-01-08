@@ -1,6 +1,7 @@
 //main.cpp
 #include <Windows.h>
 #include <intrin.h>
+#include <iostream>
 #include "../RwEverything/RwEverything.hpp"
 
 // Intel

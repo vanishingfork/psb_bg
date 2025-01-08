@@ -2,7 +2,6 @@
 #define RWEVERYTHING_HPP
 
 #include <windows.h>
-#include <iostream>
 
 typedef unsigned long long QWORD; //because I want the lines to line up.
 
@@ -25,8 +24,9 @@ class RwEverything {
 private:
 	HANDLE RwDrvHandle;
 	char driverPath[MAX_PATH];
-	DWORD load_driver();
-	DWORD unload_driver();
+	BOOL did_load_driver = FALSE;
+	BOOL load_driver();
+	BOOL unload_driver();
 public:
 	RwEverything();
 	~RwEverything();
