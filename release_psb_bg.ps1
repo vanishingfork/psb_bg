@@ -4,19 +4,9 @@ $repo = "psb_bg"
 $token_filename = "token.env"
 ###################CONFIG##################
 
-# Clean the solution
-MSBuild psb_bg.sln /t:Clean
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Clean failed!" -ForegroundColor Red
-    exit 1
-}
 
-# Build the binary
-MSBuild psb_bg.sln
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Build failed!" -ForegroundColor Red
-    exit 1
-}
+# Build the binary with mingw
+.\build_mingw.ps1
 
 # GitHub API configuration. Takes a PAT, user, and repo as input
 $envPath = Join-Path $PSScriptRoot $token_filename

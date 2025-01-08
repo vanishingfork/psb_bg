@@ -95,6 +95,7 @@ int main() {
 	if (!strcmp(cpu, "GenuineIntel")) intel_bootguard_check();
 	else if (!strcmp(cpu, "AuthenticAMD")) amd_psb_check();
 	else printf("Unsupported CPU detected\n");
+	printf("\nPress enter to exit.\n");
 	(void)getchar();
 	return 0;
 }
