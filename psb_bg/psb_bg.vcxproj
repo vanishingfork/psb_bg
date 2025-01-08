@@ -131,14 +131,19 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
     </Link>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="D:\admin\Downloads\psb_bg-master\driver.h" />
-    <ClInclude Include="RwEverything.hpp" />
+    <ClInclude Include="..\RwEverything\driver.hpp" />
+    <ClInclude Include="..\RwEverything\RwEverything.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\RwEverything\driver.cpp" />
+    <ClCompile Include="..\RwEverything\RwEverything.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="RwEverything.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />

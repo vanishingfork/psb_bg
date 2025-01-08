@@ -15,10 +15,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="D:\admin\Downloads\psb_bg-master\driver.h">
+    <ClInclude Include="..\RwEverything\RwEverything.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="RwEverything.hpp">
+    <ClInclude Include="..\RwEverything\driver.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -26,7 +26,10 @@
     <ClCompile Include="main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RwEverything.cpp">
+    <ClCompile Include="..\RwEverything\RwEverything.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\RwEverything\driver.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
