@@ -367,3 +367,6 @@ FodyWeavers.xsd
 
 #.gch files
 *.gch
+
+# binaries
+*.exe
