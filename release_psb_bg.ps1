@@ -36,7 +36,6 @@ catch {
 # Get release details
 $releaseTag = Read-Host "Enter release tag (latest tag: $latestTag)"
 $releaseDescription = Read-Host "Enter release description"
-MSBuild psb_bg.sln
 # Create release
 $releaseData = @{
     tag_name = $releaseTag

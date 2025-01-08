@@ -6,13 +6,13 @@
 typedef unsigned long long QWORD; //because I want the lines to line up.
 
 struct PCI_RW_DWORD {
-	BYTE bus;      // [0]
-	BYTE dev;      // [1]
-	BYTE func;     // [2]
-	BYTE pad0 = 0; // [3] 
-	WORD offset;   // [4..5]
-	WORD pad1 = 0; // [6..7] 
-	DWORD value;   // [8..11]
+	BYTE bus;      // [00]
+	BYTE dev;      // [01]
+	BYTE func;     // [02]
+	BYTE pad0 = 0; // [03]     // words must be <address> % 2
+	WORD offset;   // [04..05]
+	WORD pad1 = 0; // [06..07] // dwords must be <address> % 4
+	DWORD value;   // [08..11]
 };
 struct MsrReadBuf {
 	QWORD main;

@@ -55,12 +55,18 @@ BOOL is_hypervisor() {
 
 VOID intel_bootguard_check() { // Enjoy my weird formatting
 	QWORD msr_val = rwe.read_msr(BG_MSR); // MSR address -> BootGuard
-	if (msr_val == IOCTL_FAIL) printf("IOCTL FAILED!\n");
+	if (msr_val == IOCTL_FAIL) {
+		printf("IOCTL FAILED!\n");
+		return;
+	}
 	printf("Intel CPU detected\nBootGuard MSR: 0x%016llx\n", msr_val);
-	if ((msr_val & 0x30000000) == 0x0) printf("BootGuard: disabled\n");
-	else if ((msr_val & 0x30000000) == 0x10000000) printf("BootGuard: verified boot\n");
-	else if ((msr_val & 0x30000000) == 0x20000000) printf("BootGuard: measured boot\n");
-	else if ((msr_val & 0x30000000) == 0x30000000) printf("BootGuard: verified + measured boot\n");
+	switch (msr_val & 0x30000000) { //we only care about MSR_0x13A[29:28]
+		case 0x0: printf("BootGuard: disabled\n"); break;
+		case 0x10000000: printf("BootGuard: verified boot\n"); break;
+		case 0x20000000: printf("BootGuard: measured boot\n"); break;
+		case 0x30000000: printf("BootGuard: verified + measured boot\n"); break;
+		default: printf("BootGuard: unknown status\n"); break;
+	}
 }
 
 DWORD SMU_READ_DWORD(DWORD value) {
