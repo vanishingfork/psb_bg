@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # Enviornment files
 *.env
+
+#.gch files
+*.gch

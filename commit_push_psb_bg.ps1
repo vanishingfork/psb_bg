@@ -21,7 +21,7 @@ try {
     # Push changes using token
     $repoUrl = "https://${user}:${token}@github.com/${user}/${repo}.git"
     $pushOutput = git push $repoUrl
-    Write-Host "Push successful: $pushOutput" -ForegroundColor Green
+    Write-Host "Push output: $pushOutput" -ForegroundColor Green
 }
 catch {
     Write-Host "Error occurred: $_" -ForegroundColor Red
