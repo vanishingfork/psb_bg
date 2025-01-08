@@ -157,6 +157,7 @@ DWORD RwEverything::pci_read_dword(BYTE bus, BYTE dev, BYTE func, WORD offset) {
 }
 
 DWORD RwEverything::read_memory_dword(QWORD phys_address) {
+	return 0;
 	//NOT FUNCTIONAL ATM
 	/*
 	DWORD returnValue = -1;

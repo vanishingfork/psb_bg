@@ -3,8 +3,21 @@ $user = "vanishingfork"
 $repo = "psb_bg"
 $token_filename = "token.env"
 ###################CONFIG##################
+
+# Clean the solution
+MSBuild psb_bg.sln /t:Clean
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Clean failed!" -ForegroundColor Red
+    exit 1
+}
+
 # Build the binary
-.\build.ps1
+MSBuild psb_bg.sln
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Build failed!" -ForegroundColor Red
+    exit 1
+}
+
 # GitHub API configuration. Takes a PAT, user, and repo as input
 $envPath = Join-Path $PSScriptRoot $token_filename
 if (!(Test-Path $envPath)) {
@@ -33,7 +46,7 @@ catch {
 # Get release details
 $releaseTag = Read-Host "Enter release tag (latest tag: $latestTag)"
 $releaseDescription = Read-Host "Enter release description"
-
+MSBuild psb_bg.sln
 # Create release
 $releaseData = @{
     tag_name = $releaseTag
@@ -53,7 +66,7 @@ try {
     $uploadUrl = $response.upload_url -replace "\{\?name,label\}",""
     
     # Upload all files from dist folder
-    Get-ChildItem "dist/*" | ForEach-Object {
+    Get-ChildItem "x64/Release/*.exe" | ForEach-Object {
         Write-Host "Uploading $($_.Name)..." -ForegroundColor Yellow
         
         $uploadHeaders = @{

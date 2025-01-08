@@ -10,7 +10,14 @@ No PSB/BootGuard = can run unsigned firmware (flashing that firmware may still p
 
 # Hypervisors
 
-Running under a Hypervisor such as Hyper-V on Intel results in a BSOD for me.
+In my testing, the tool requires windows to be running baremetal to prevent bluescreening when reading the MSR. 
+The script attempts to check if it is running under a hypervisor. 
+Easiest way I know of to reliably disable Hyper-V and all similar features is to just toggle AMD-V/VT-x in the UEFI Firmware.
+
+# Windows Security / Defender
+
+Requires vulnerable driver blocklist and memory integrity disabled because it uses RWEverything's driver.
+Windows Defender will complain about bundled RWEverything, but I can not be bothered to fix.
 
 # Status
 
