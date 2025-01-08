@@ -19,53 +19,9 @@
 #define pci_rt_fun 0
 
 //my fav antipattern
-#define IOCTL_FAIL 0x4141414141414141
 RwEverything rwe;
 
-DWORD PCI_ID_READ_DWORD(BYTE bus, BYTE dev, BYTE func, DWORD value) {
-	rwe.pci_write_dword(bus, dev, func, SMU_INDEX_ADDR, value);
-	return rwe.pci_read_dword(bus, dev, func, SMU_DATA_ADDR);
-}
-
-VOID get_cpu_vendor(char* vendor) {
-	int cpuInfo[4];
-	__cpuid(cpuInfo, 0);
-	memcpy(vendor + 0, &cpuInfo[1], 4); // EBX
-	memcpy(vendor + 8, &cpuInfo[2], 4); // ECX lovely quirks of x86 cpuid
-	memcpy(vendor + 4, &cpuInfo[3], 4); // EDX
-	vendor[12] = '\0';
-}
-
-VOID intel_bootguard_check() { // Enjoy my weird formatting
-	QWORD msr_val = rwe.read_msr(BG_MSR); // MSR address -> BootGuard
-	if (msr_val == IOCTL_FAIL) printf("IOCTL FAILED!\n");
-	printf("Intel CPU detected\nBootGuard MSR: 0x%016llx\n", msr_val);
-	if ((msr_val & 0x30000000) == 0x0) printf("BootGuard: disabled\n");
-	else if ((msr_val & 0x30000000) == 0x10000000) printf("BootGuard: verified boot\n");
-	else if ((msr_val & 0x30000000) == 0x20000000) printf("BootGuard: measured boot\n");
-	else if ((msr_val & 0x30000000) == 0x30000000) printf("BootGuard: verified + measured boot\n");
-}
-
-VOID amd_psb_check() {
-	printf("AMD CPU detected\n");
-	DWORD config = PCI_ID_READ_DWORD(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMN_PUBLIC_BASE + PSB_STATUS_OFFSET); //read psp psb status register (0x3810994)
-	printf("PSP Config: %08x\n", config); //shamelessly stolen from https://github.com/IOActive/Platbox.
-	printf(" - Platform vendor ID: %02x\n", config & 0xFF);
-	printf(" - Platform model ID: %02x\n", (config >> 8) & 0xF);
-	printf(" - BIOS key revision ID: %04x\n", (config >> 12) & 0xFFFF);
-	printf(" - Root key select: %02x\n", (config >> 16) & 0xF);
-	printf(" - Platform Secure Boot Enable: %d\n", (config >> 24) & 1);
-	printf(" - Disable BIOS key anti-rollback:  %d\n", (config >> 25) & 1);
-	printf(" - Disable AMD key usage:  %d\n", (config >> 26) & 1);
-	printf(" - Disable secure debug unlock:  %d\n", (config >> 27) & 1);
-	printf(" - Customer key unlock:  %d\n", (config >> 28) & 1);
-}
-
-BOOL is_hypervisor() {
-	int cpuInfo[4] = { 0 };
-	__cpuid(cpuInfo, 1); // Check the hypervisor present bit (bit 31 of ECX)
-	return (cpuInfo[2] & (1 << 31)) != 0; 
-}
+#define IOCTL_FAIL 0x4141414141414141
 
 BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
 	switch (dwCtrlType) {
@@ -79,6 +35,51 @@ BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
 	default:
 		return FALSE;
 	}
+}
+
+VOID get_cpu_vendor(char* vendor) {
+	int cpuInfo[4];
+	__cpuid(cpuInfo, 0);
+	memcpy(vendor + 0, &cpuInfo[1], 4); // EBX
+	memcpy(vendor + 8, &cpuInfo[2], 4); // ECX lovely quirks of x86 cpuid
+	memcpy(vendor + 4, &cpuInfo[3], 4); // EDX
+	vendor[12] = '\0';
+}
+
+BOOL is_hypervisor() {
+	int cpuInfo[4] = { 0 };
+	__cpuid(cpuInfo, 1); // Check the hypervisor present bit (bit 31 of ECX)
+	return (cpuInfo[2] & (1 << 31)) != 0;
+}
+
+VOID intel_bootguard_check() { // Enjoy my weird formatting
+	QWORD msr_val = rwe.read_msr(BG_MSR); // MSR address -> BootGuard
+	if (msr_val == IOCTL_FAIL) printf("IOCTL FAILED!\n");
+	printf("Intel CPU detected\nBootGuard MSR: 0x%016llx\n", msr_val);
+	if ((msr_val & 0x30000000) == 0x0) printf("BootGuard: disabled\n");
+	else if ((msr_val & 0x30000000) == 0x10000000) printf("BootGuard: verified boot\n");
+	else if ((msr_val & 0x30000000) == 0x20000000) printf("BootGuard: measured boot\n");
+	else if ((msr_val & 0x30000000) == 0x30000000) printf("BootGuard: verified + measured boot\n");
+}
+
+DWORD SMU_READ_DWORD(DWORD value) {
+	rwe.pci_write_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_INDEX_ADDR, value);
+	return rwe.pci_read_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_DATA_ADDR);
+}
+
+VOID amd_psb_check() {
+	printf("AMD CPU detected\n");
+	DWORD config = SMU_READ_DWORD(SMN_PUBLIC_BASE + PSB_STATUS_OFFSET); //read psp psb status register (0x3810994)
+	printf("PSP Config: %08x\n", config); //shamelessly stolen from https://github.com/IOActive/Platbox.
+	printf(" - Platform vendor ID: %02x\n", config & 0xFF);
+	printf(" - Platform model ID: %02x\n", (config >> 8) & 0xF);
+	printf(" - BIOS key revision ID: %04x\n", (config >> 12) & 0xFFFF);
+	printf(" - Root key select: %02x\n", (config >> 16) & 0xF);
+	printf(" - Platform Secure Boot Enable: %d\n", (config >> 24) & 1);
+	printf(" - Disable BIOS key anti-rollback:  %d\n", (config >> 25) & 1);
+	printf(" - Disable AMD key usage:  %d\n", (config >> 26) & 1);
+	printf(" - Disable secure debug unlock:  %d\n", (config >> 27) & 1);
+	printf(" - Customer key unlock:  %d\n", (config >> 28) & 1);
 }
 
 int main() {

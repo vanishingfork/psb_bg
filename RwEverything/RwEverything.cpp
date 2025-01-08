@@ -13,6 +13,26 @@ typedef unsigned long long QWORD;
 
 #define IOCTL_FAIL 0x4141414141414141
 
+bool IsDriverInUse(const char* deviceName) {
+    HANDLE hDevice = CreateFileA(
+        deviceName,
+        GENERIC_READ,  
+        0, // No sharing
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL
+    );
+
+    if (hDevice == INVALID_HANDLE_VALUE) {
+        // If ERROR_SHARING_VIOLATION, device is in use
+        return (GetLastError() == ERROR_SHARING_VIOLATION);
+    }
+
+    CloseHandle(hDevice);
+    return false;
+}
+
 DWORD RwEverything::load_driver() {
 	GetTempPathA(MAX_PATH, driverPath);
 	strcat_s(driverPath, "RwDrv.sys");
@@ -45,9 +65,18 @@ DWORD RwEverything::load_driver() {
 		nullptr, nullptr, nullptr, nullptr, nullptr);
 
 	if (!hService) {
-		printf("Failed to create service.\n");
+		
+		//try to get a handle to an already open RwDrv service.
+        hService = OpenServiceA(hSCM, "RwDrv", SERVICE_START | DELETE | SERVICE_STOP);
+        if (!hService) {
+            printf("Failed to create or open existing RwDrv service.\n");
+            CloseServiceHandle(hSCM);
+            return 1;
+        }
+		printf("RwDrv service already running.\n");
+		CloseServiceHandle(hService);
 		CloseServiceHandle(hSCM);
-		return 1;
+		return 0;
 	}
 
 	if (!StartServiceA(hService, 0, nullptr)) {
@@ -117,14 +146,14 @@ RwEverything::RwEverything() {
 	RwDrvHandle = CreateFileA(
 		"\\\\.\\RwDrv",                      // Device name 
 		GENERIC_READ | GENERIC_WRITE,        // Access mode
-		0,                                   // Share mode (exclusive)
+		0,									 // Share mode (exclusive)
 		NULL,                                // Security attributes
 		OPEN_EXISTING,                       // Creation disposition
 		FILE_ATTRIBUTE_NORMAL,               // Flags and attributes
 		NULL                                 // Template file
 	);
 	if (RwDrvHandle == INVALID_HANDLE_VALUE) {
-		printf("RwDrv handle acquisition failed\n");
+		printf("RwDrv handle acquisition failed.\n");
 		this->~RwEverything(); // do the spooky self-destructor call
 	}
 }
@@ -158,32 +187,4 @@ DWORD RwEverything::pci_read_dword(BYTE bus, BYTE dev, BYTE func, WORD offset) {
 
 DWORD RwEverything::read_memory_dword(QWORD phys_address) {
 	return 0;
-	//NOT FUNCTIONAL ATM
-	/*
-	DWORD returnValue = -1;
-	QWORD inBuffer = phys_address;
-	DWORD bytesReturned = 0;
-	int size = 4;
-	int flag = 2;
-
-	struct {
-		QWORD addr;
-		int size;
-		int flag;
-		DWORD* output;
-	} ioBuffer = { phys_address, size, flag, &returnValue };
-
-	if (!DeviceIoControl(RwDrvHandle,
-		IOCTL_MEMORY_READ_DWORD,
-		&ioBuffer,
-		sizeof(ioBuffer),
-		&ioBuffer,
-		sizeof(ioBuffer),
-		nullptr,
-		nullptr)) 
-	{
-		return returnValue;
-	}
-	return -1;
-	*/
 }
