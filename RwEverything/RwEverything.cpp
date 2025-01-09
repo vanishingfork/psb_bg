@@ -2,7 +2,7 @@
 #include "RwEverything.hpp"
 #include "driver.hpp"
 #include <windows.h>
-#include <iostream>
+#include <stdio.h>
 
 typedef unsigned long long QWORD;
 
@@ -14,31 +14,11 @@ typedef unsigned long long QWORD;
 #define IOCTL_FAIL 0x4141414141414141
 
 
-bool IsDriverInUse(const char* deviceName) {
-    HANDLE hDevice = CreateFileA(
-        deviceName,
-        GENERIC_READ,  
-        0, // No sharing
-        NULL,
-        OPEN_EXISTING,
-        FILE_ATTRIBUTE_NORMAL,
-        NULL
-    );
-
-    if (hDevice == INVALID_HANDLE_VALUE) {
-        // If ERROR_SHARING_VIOLATION, device is in use
-        return (GetLastError() == ERROR_SHARING_VIOLATION);
-    }
-
-    CloseHandle(hDevice);
-    return false;
-}
-
 BOOL RwEverything::load_driver() {
 	SC_HANDLE hSCM = OpenSCManagerA(nullptr, nullptr, SC_MANAGER_ALL_ACCESS);
 	if (!hSCM) {
 		printf("Failed to open SC Manager.\n");
-		return ERROR; //ERROR = FALSE
+		return ERROR; // ERROR = FALSE
 	}
 
 	SC_HANDLE hService = OpenServiceA(hSCM, "RwDrv", SERVICE_QUERY_STATUS | SERVICE_STOP | DELETE);
@@ -48,7 +28,7 @@ BOOL RwEverything::load_driver() {
 			printf("Service already running.\n");
 			CloseServiceHandle(hService);
 			CloseServiceHandle(hSCM);
-			return TRUE; //already loaded, but result is the same.
+			return TRUE; // already loaded, but result is the same.
 		}
 		CloseServiceHandle(hService);
 	}

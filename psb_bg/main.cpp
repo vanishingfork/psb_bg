@@ -1,11 +1,11 @@
 //main.cpp
 #include <Windows.h>
 #include <intrin.h>
-#include <iostream>
+#include <stdio.h>
 #include "../RwEverything/RwEverything.hpp"
 
 // Intel
-#define BG_MSR 0x13A // Intel Boot Guard MSR
+#define BG_MSR 0x0000013A // Intel Boot Guard MSR
 
 // AMD
 // SYSTEM MANAGEMENT UNIT (SMU) Registers + Offsets
@@ -19,24 +19,7 @@
 #define pci_rt_dev 0
 #define pci_rt_fun 0
 
-//my fav antipattern
-RwEverything rwe;
-
 #define IOCTL_FAIL 0x4141414141414141
-
-BOOL WINAPI ConsoleHandler(DWORD dwCtrlType) {
-	switch (dwCtrlType) {
-	case CTRL_C_EVENT:
-	case CTRL_BREAK_EVENT:
-	case CTRL_CLOSE_EVENT:
-	case CTRL_LOGOFF_EVENT:
-	case CTRL_SHUTDOWN_EVENT:
-		rwe.~RwEverything(); // Call the destructor directly
-		return TRUE;
-	default:
-		return FALSE;
-	}
-}
 
 VOID get_cpu_vendor(char* vendor) {
 	int cpuInfo[4];
@@ -53,15 +36,15 @@ BOOL is_hypervisor() {
 	return (cpuInfo[2] & (1 << 31)) != 0;
 }
 
-VOID intel_bootguard_check() { // Enjoy my weird formatting
-	QWORD msr_val = rwe.read_msr(BG_MSR); // MSR address -> BootGuard
+VOID intel_bootguard_check(RwEverything* RwDrvController) { // Enjoy my weird formatting
+	QWORD msr_val = (*RwDrvController).read_msr(BG_MSR); // MSR address -> BootGuard
 	if (msr_val == IOCTL_FAIL) {
 		printf("IOCTL FAILED!\n");
 		return;
 	}
 	printf("Intel CPU detected\nBootGuard MSR: 0x%016llx\n", msr_val);
 	switch (msr_val & 0x30000000) { //we only care about MSR_0x13A[29:28]
-		case 0x0: printf("BootGuard: disabled\n"); break;
+		case 0x00000000: printf("BootGuard: disabled\n"); break;
 		case 0x10000000: printf("BootGuard: verified boot\n"); break;
 		case 0x20000000: printf("BootGuard: measured boot\n"); break;
 		case 0x30000000: printf("BootGuard: verified + measured boot\n"); break;
@@ -69,14 +52,14 @@ VOID intel_bootguard_check() { // Enjoy my weird formatting
 	}
 }
 
-DWORD SMU_READ_DWORD(DWORD value) {
-	rwe.pci_write_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_INDEX_ADDR, value);
-	return rwe.pci_read_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_DATA_ADDR);
+DWORD SMU_READ_DWORD(RwEverything* RwDrvController, DWORD value) {
+	(*RwDrvController).pci_write_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_INDEX_ADDR, value);
+	return (*RwDrvController).pci_read_dword(pci_rt_bus, pci_rt_dev, pci_rt_fun, SMU_DATA_ADDR);
 }
 
-VOID amd_psb_check() {
+VOID amd_psb_check(RwEverything* RwDrvController) {
 	printf("AMD CPU detected\n");
-	DWORD config = SMU_READ_DWORD(SMN_PUBLIC_BASE + PSB_STATUS_OFFSET); //read psp psb status register (0x3810994)
+	DWORD config = SMU_READ_DWORD(RwDrvController, SMN_PUBLIC_BASE + PSB_STATUS_OFFSET); //read psp psb status register (0x3810994)
 	printf("PSP Config: %08x\n", config); //shamelessly stolen from https://github.com/IOActive/Platbox.
 	printf(" - Platform vendor ID: %02x\n", config & 0xFF);
 	printf(" - Platform model ID: %02x\n", (config >> 8) & 0xF);
@@ -90,7 +73,7 @@ VOID amd_psb_check() {
 }
 
 int main() {
-	SetConsoleCtrlHandler(ConsoleHandler, TRUE); //make sure to setup the descructor handler
+	RwEverything RwDrvController;
 	char cpu[13]; //12 + 1 for null term
 	get_cpu_vendor(cpu);
 	if (is_hypervisor() && !strcmp(cpu, "GenuineIntel")) { // If Hyper-V and Intel Processor, give user chance to abort.
@@ -98,9 +81,14 @@ int main() {
 		(void)getchar();
 	}
 
-	if (!strcmp(cpu, "GenuineIntel")) intel_bootguard_check();
-	else if (!strcmp(cpu, "AuthenticAMD")) amd_psb_check();
+	//printf("MSR: 0x%016llx\n", (RwDrvController).read_msr(0x0201));
+
+	if (!strcmp(cpu, "GenuineIntel")) intel_bootguard_check(&RwDrvController);
+	else if (!strcmp(cpu, "AuthenticAMD")) amd_psb_check(&RwDrvController);
 	else printf("Unsupported CPU detected\n");
+
+	// Cleanup
+	RwDrvController.~RwEverything();
 	printf("\nPress enter to exit.\n");
 	(void)getchar();
 	return 0;
